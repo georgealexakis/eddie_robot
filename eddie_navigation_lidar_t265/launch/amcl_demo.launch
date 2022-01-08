@@ -1,0 +1,21 @@
+<launch>
+  <!-- Eddie bringup package -->
+  <include file="$(find eddie_bringup)/launch/eddie_bringup_lidar_t265.launch" />
+
+  <arg name="use_map_topic" default="false" />
+  <arg name="scan_topic" default="/scan" />
+
+  <!-- Run the map server -->
+  <arg name="map_file" default="$(find eddie_navigation_lidar_t265)/maps/map.yaml" />
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <!-- Run AMCL -->
+  <include file="$(find eddie_navigation_lidar_t265)/launch/include/amcl.launch">
+    <arg name="use_map_topic" value="$(arg use_map_topic)" />
+    <arg name="scan_topic" value="$(arg scan_topic)" />
+  </include>
+
+  <!-- Run Move Base -->
+  <include file="$(find eddie_navigation_lidar_t265)/launch/include/move_base.launch" />
+
+</launch>

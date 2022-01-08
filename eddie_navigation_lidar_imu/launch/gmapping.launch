@@ -1,0 +1,15 @@
+<launch>
+  <!-- Eddie bringup package -->
+  <include file="$(find eddie_bringup)/launch/eddie_bringup_lidar_imu.launch" />
+
+  <arg name="scan_topic" default="/scan" />
+
+  <!-- Run gmapping -->
+  <include file="$(find eddie_navigation_lidar_imu)/launch/include/gmapping.launch">
+    <arg name="scan_topic" value="$(arg scan_topic)" />
+  </include>
+
+  <!-- Run Move Base -->
+  <include file="$(find eddie_navigation_lidar_imu)/launch/include/move_base.launch" />
+
+</launch>

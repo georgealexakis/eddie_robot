@@ -1,0 +1,12 @@
+<launch>
+  <!-- Publish robot model and its joints -->
+  <arg name="model" />
+  <param name="robot_description" command="$(find xacro)/xacro --check-order $(arg model)" />
+  <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher">
+    <rosparam param="source_list">["move_joints"]</rosparam>
+  </node>
+  <!-- Publish the state of a robot to tf2 -->
+  <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher" />
+  <!-- Publish the transform between the /base_link frame and the /map frame as a pose message -->
+  <node pkg="robot_pose_publisher" name="robot_pose_publisher" type="robot_pose_publisher" />
+</launch>

@@ -1,0 +1,8 @@
+<launch>
+  <!-- Give permissions for the port: sudo chmod a+rw /dev/ttyUSB0 -->
+  <node pkg="rosserial_python" name="serial_node" type="serial_node.py" output="screen">
+    <param name="port" type="string" value="/dev/ttyUSB0" />
+  </node>
+  <!-- Drive motors and read encoders -->
+  <node pkg="eddie_bringup" name="motor_controller" type="motor_controller" output="screen" />
+</launch>

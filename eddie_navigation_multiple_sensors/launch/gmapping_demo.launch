@@ -1,0 +1,15 @@
+<launch>
+  <!-- Eddie bringup packages -->
+  <include file="$(find eddie_bringup)/launch/eddie_bringup_multiple_sensors.launch" />
+
+  <arg name="scan_topic" default="/scan" />
+
+  <!-- Run gmapping -->
+  <include file="$(find eddie_navigation_multiple_sensors)/launch/include/gmapping.launch">
+    <arg name="scan_topic" value="$(arg scan_topic)" />
+  </include>
+
+  <!-- Run Move Base -->
+  <include file="$(find eddie_navigation_multiple_sensors)/launch/include/move_base.launch" />
+
+</launch>
