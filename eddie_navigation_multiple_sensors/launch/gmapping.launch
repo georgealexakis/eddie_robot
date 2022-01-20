@@ -1,5 +1,5 @@
 <launch>
-  <!-- Eddie bringup packages -->
+  <!-- Eddie bringup package -->
   <include file="$(find eddie_bringup)/launch/eddie_bringup_multiple_sensors.launch" />
 
   <arg name="scan_topic" default="/scan" />
