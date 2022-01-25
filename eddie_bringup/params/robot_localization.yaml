@@ -145,8 +145,8 @@ navsat_transform:
   magnetic_declination_radians: 0.0
   yaw_offset: 0.0
   zero_altitude: true
-  broadcast_cartesian_transform: false
+  broadcast_utm_transform: true
   publish_filtered_gps: true
   use_odometry_yaw: true
-  wait_for_datum: true
+  wait_for_datum: false
   datum: [35.3175753956, 25.1017937025, 0.0] # Ouside of the lab
