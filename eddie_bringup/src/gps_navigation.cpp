@@ -175,8 +175,7 @@ public:
     // Callback to receive GPS points
     void pointsCallback(const std_msgs::String::ConstPtr &msg)
     {
-        // Variables
-        pointsCounter = 0;
+        // Clear vars
         clearVars();
         std::string coordinates = msg->data.c_str();
 
