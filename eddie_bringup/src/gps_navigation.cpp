@@ -30,6 +30,12 @@ private:
     double latiGoal, longiGoal, latiNext, longiNext;
     std::string utm_zone;
     std::string path_local, path_abs;
+    // Variables
+    int pointsCounter;
+    bool navigationStatus;
+    // Handle incomming coordinates
+    std::vector<std::pair<double, double>> points;
+    std::vector<int> coordinatesCounter;
 
 public:
     GPSNavigator()
@@ -39,150 +45,172 @@ public:
         pub_status = n.advertise<std_msgs::Bool>("/gps_navigation/status", 10);
         // Subscriber for GPS points
         sub_points = n.subscribe("/gps_navigation/points", 10, &GPSNavigator::pointsCallback, this);
+        // Initiate counter
+        pointsCounter = 0;
+        navigationStatus = false;
+        ros::Rate loop_rate(15);
+        // Run forever
+        while (ros::ok())
+        {
+            if (navigationStatus)
+            {
+                std::cout << pointsCounter << " incoming coordinates" << std::endl;
+                std::vector<std::pair<double, double>>::iterator pointIterator;
+                for (pointIterator = points.begin(); pointIterator < points.end(); pointIterator++)
+                {
+                    std::cout << pointIterator->first << " " << pointIterator->second << std::endl;
+                }
+                // Set variables to init
+                bool moveBaseStatus = false;
+                count = 0;
+                wait_count = 0;
+                // Construct an action client that we use to communication with the action named move_base
+                // Setting true is telling the constructor to start ros::spin()
+                MoveBaseClient ac("/move_base", true);
+                // Wait for the action server to come up
+                while (!ac.waitForServer(ros::Duration(5.0)) && ros::ok() && moveBaseStatus == false)
+                {
+                    wait_count++;
+                    if (wait_count > 5)
+                    {
+                        ROS_ERROR("Action server did not come up");
+                        moveBaseStatus = true;
+                    }
+                    else
+                    {
+                        ROS_INFO("Waiting for the move_base action server to come up");
+                        moveBaseStatus = false;
+                    }
+                }
+                if (moveBaseStatus == false)
+                {
+                    // Iterate through vector of waypoints for setting goals
+                    for (iter = points.begin(); iter < points.end(); iter++)
+                    {
+                        // Setting goal
+                        latiGoal = iter->first;
+                        longiGoal = iter->second;
+                        bool final_point = false;
+
+                        if (iter < (points.end() - 1))
+                        {
+                            iter++;
+                            latiNext = iter->first;
+                            longiNext = iter->second;
+                            iter--;
+                        }
+                        else
+                        {
+                            latiNext = iter->first;
+                            longiNext = iter->second;
+                            final_point = true;
+                        }
+
+                        ROS_INFO("Received Latitude goal:%.8f", latiGoal);
+                        ROS_INFO("Received longitude goal:%.8f", longiGoal);
+
+                        // Convert lat/long to utm:
+                        UTM_point = latLongtoUTM(latiGoal, longiGoal);
+                        UTM_next = latLongtoUTM(latiNext, longiNext);
+
+                        // Transform UTM to map point in odom frame
+                        map_point = UTMtoMapPoint(UTM_point);
+                        map_next = UTMtoMapPoint(UTM_next);
+
+                        // Build goal to send to move_base
+                        move_base_msgs::MoveBaseGoal goal = buildGoal(map_point, map_next, final_point);
+
+                        // Send Goal
+                        ROS_INFO("Sending goal");
+                        ac.sendGoal(goal);
+                        // Waiting to see if move_base was able to reach goal
+                        ac.waitForResult();
+
+                        if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+                        {
+                            ROS_INFO("Robot has reached its goal!");
+                            // Switch to next waypoint and repeat
+                            clearVars();
+                        }
+                        else
+                        {
+                            ROS_ERROR("Robot was unable to reach its goal. GPS Waypoint unreachable.");
+                            // Notify that waypoint following is complete
+                            std_msgs::Bool navStatus;
+                            navStatus.data = false;
+                            pub_status.publish(navStatus);
+                            clearVars();
+                        }
+                    }
+                    ROS_INFO("Robot has reached all of its goals!!!\n");
+                    // Notify that waypoint following is complete
+                    std_msgs::Bool navStatus;
+                    navStatus.data = true;
+                    pub_status.publish(navStatus);
+                    clearVars();
+                }
+                else
+                {
+                    std_msgs::Bool navStatus;
+                    navStatus.data = false;
+                    pub_status.publish(navStatus);
+                    clearVars();
+                }
+            }
+            ros::spinOnce();
+            loop_rate.sleep();
+        }
+    }
+
+    // Clear vectors
+    void clearVars()
+    {
+        navigationStatus = false;
+        pointsCounter = 0;
+        // Handle incomming coordinates
+        points.clear();
+        coordinatesCounter.clear();
     }
 
     // Callback to receive GPS points
     void pointsCallback(const std_msgs::String::ConstPtr &msg)
     {
         // Variables
-        int pointsCounter = 0;
-        // Handle incomming coordinates
-        std::vector<std::pair<double, double>> points;
-        std::vector<int> coordinatesCounter;
+        pointsCounter = 0;
+        clearVars();
         std::string coordinates = msg->data.c_str();
 
-        // Separate pairs of coordinates
-        for (int i = 0; i < coordinates.length(); i++)
+        if (coordinates.compare("") == 0)
         {
-            if (coordinates[i] == '|')
-            {
-                coordinatesCounter.push_back(i);
-            }
-        }
-
-        // Number of points
-        pointsCounter = coordinatesCounter.size() - 1;
-        if (pointsCounter > 0)
-        {
-            ROS_INFO("Valid incoming coordinates");
-            // Translate string to coordinates vector
-            for (int i = 0; i < pointsCounter; i++)
-            {
-                std::string record = coordinates.substr(coordinatesCounter[i] + 1, coordinatesCounter[i + 1] - coordinatesCounter[i] - 1);
-                std::size_t pos = record.find("&");
-                std::string lat = record.substr(0, pos);
-                std::string lng = record.substr(pos + 1, record.length() - 1 - pos);
-                points.push_back(std::make_pair(std::stod(lat), std::stod(lng)));
-            }
-
-            std::cout << pointsCounter << " incoming coordinates" << std::endl;
-            std::vector<std::pair<double, double>>::iterator pointIterator;
-            for (pointIterator = points.begin(); pointIterator < points.end(); pointIterator++)
-            {
-                std::cout << pointIterator->first << " " << pointIterator->second << std::endl;
-            }
-
-            // Set variables to init
-            bool moveBaseStatus = false;
-            count = 0;
-            wait_count = 0;
-
-            // Construct an action client that we use to communication with the action named move_base
-            // Setting true is telling the constructor to start ros::spin()
-            MoveBaseClient ac("/move_base", true);
-
-            // Wait for the action server to come up
-            while (!ac.waitForServer(ros::Duration(5.0)) && ros::ok() && moveBaseStatus == false)
-            {
-                wait_count++;
-                if (wait_count > 5)
-                {
-                    ROS_ERROR("Action server did not come up");
-                    moveBaseStatus = true;
-                }
-                else
-                {
-                    ROS_INFO("Waiting for the move_base action server to come up");
-                    moveBaseStatus = false;
-                }
-            }
-            if (moveBaseStatus == false)
-            {
-                // Iterate through vector of waypoints for setting goals
-                for (iter = points.begin(); iter < points.end(); iter++)
-                {
-                    // Setting goal
-                    latiGoal = iter->first;
-                    longiGoal = iter->second;
-                    bool final_point = false;
-
-                    if (iter < (points.end() - 1))
-                    {
-                        iter++;
-                        latiNext = iter->first;
-                        longiNext = iter->second;
-                        iter--;
-                    }
-                    else
-                    {
-                        latiNext = iter->first;
-                        longiNext = iter->second;
-                        final_point = true;
-                    }
-
-                    ROS_INFO("Received Latitude goal:%.8f", latiGoal);
-                    ROS_INFO("Received longitude goal:%.8f", longiGoal);
-
-                    //Convert lat/long to utm:
-                    UTM_point = latLongtoUTM(latiGoal, longiGoal);
-                    UTM_next = latLongtoUTM(latiNext, longiNext);
-
-                    // Transform UTM to map point in odom frame
-                    map_point = UTMtoMapPoint(UTM_point);
-                    map_next = UTMtoMapPoint(UTM_next);
-
-                    // Build goal to send to move_base
-                    move_base_msgs::MoveBaseGoal goal = buildGoal(map_point, map_next, final_point);
-
-                    // Send Goal
-                    ROS_INFO("Sending goal");
-                    ac.sendGoal(goal); //push goal to move_base node
-
-                    // Wait for result
-                    // Waiting to see if move_base was able to reach goal
-                    ac.waitForResult();
-
-                    if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
-                    {
-                        ROS_INFO("Robot has reached its goal!");
-                        // Switch to next waypoint and repeat
-                    }
-                    else
-                    {
-                        ROS_ERROR("Robot was unable to reach its goal. GPS Waypoint unreachable.");
-                        // Notify that waypoint following is complete
-                        std_msgs::Bool navStatus;
-                        navStatus.data = false;
-                        pub_status.publish(navStatus);
-                    }
-                } // End for loop iterating through waypoint vector
-
-                ROS_INFO("Robot has reached all of its goals!!!\n");
-                // Notify that waypoint following is complete
-                std_msgs::Bool navStatus;
-                navStatus.data = true;
-                pub_status.publish(navStatus);
-            }
-            else
-            {
-                std_msgs::Bool navStatus;
-                navStatus.data = false;
-                pub_status.publish(navStatus);
-            }
+            clearVars();
         }
         else
         {
-            ROS_INFO("No valid incoming coordinates");
+            // Separate pairs of coordinates
+            for (int i = 0; i < coordinates.length(); i++)
+            {
+                if (coordinates[i] == '|')
+                {
+                    coordinatesCounter.push_back(i);
+                }
+            }
+
+            // Number of points
+            pointsCounter = coordinatesCounter.size() - 1;
+            if (pointsCounter > 0)
+            {
+                ROS_INFO("Valid incoming coordinates");
+                // Translate string to coordinates vector
+                for (int i = 0; i < pointsCounter; i++)
+                {
+                    std::string record = coordinates.substr(coordinatesCounter[i] + 1, coordinatesCounter[i + 1] - coordinatesCounter[i] - 1);
+                    std::size_t pos = record.find("&");
+                    std::string lat = record.substr(0, pos);
+                    std::string lng = record.substr(pos + 1, record.length() - 1 - pos);
+                    points.push_back(std::make_pair(std::stod(lat), std::stod(lng)));
+                }
+                navigationStatus = true;
+            }
         }
     }
 
@@ -269,7 +297,6 @@ public:
         {
             goal.target_pose.pose.orientation.w = 1.0;
         }
-
         return goal;
     }
 };
@@ -278,8 +305,6 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "gps_navigator");
     GPSNavigator navigator;
-    ros::MultiThreadedSpinner spinner(4);
-    spinner.spin();
     ros::shutdown();
     std::cout << "GPS Navigator shutted down" << std::endl;
     return 0;
