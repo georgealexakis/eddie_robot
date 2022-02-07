@@ -129,8 +129,6 @@ public:
                         if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
                         {
                             ROS_INFO("Robot has reached its goal!");
-                            // Switch to next waypoint and repeat
-                            clearVars();
                         }
                         else
                         {
