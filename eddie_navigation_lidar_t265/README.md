@@ -18,7 +18,7 @@ Use ``$ rosrun rqt_reconfigure rqt_reconfigure`` to configure dynamically the pa
 
 ``$ roslaunch eddie_navigation_lidar_t265 gmapping.launch``
 
-### NAvigation with map
+### Navigation with map
 
 ``$ roslaunch eddie_navigation_lidar_t265 amcl_navigation.launch map_file:=/path/to/my/map.yaml``
 
