@@ -24,7 +24,7 @@ Use ``$ rosrun rqt_reconfigure rqt_reconfigure`` to configure dynamically the pa
 
 ## Links
 
-https://www.micro-semiconductor.it/datasheet/37-28992.pdf
-https://kaiyuzheng.me/documents/navguide.pdf
-https://github.com/ROBOTIS-GIT/turtlebot3/tree/master/turtlebot3_navigation
-https://github.com/jackal/jackal/tree/melodic-devel/jackal_navigation
+* https://www.micro-semiconductor.it/datasheet/37-28992.pdf
+* https://kaiyuzheng.me/documents/navguide.pdf
+* https://github.com/ROBOTIS-GIT/turtlebot3/tree/master/turtlebot3_navigation
+* https://github.com/jackal/jackal/tree/melodic-devel/jackal_navigation
